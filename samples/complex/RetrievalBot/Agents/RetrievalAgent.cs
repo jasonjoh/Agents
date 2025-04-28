@@ -78,19 +78,19 @@ public class RetrievalAgent
     /// Invokes the agent with the given input and returns the response.
     /// </summary>
     /// <param name="input">A message to process.</param>
-    /// <param name="chatHistory">The history of chat messages.</param>
+    /// <param name="agentThread">The history of chat messages.</param>
     /// <returns>An instance of <see cref="RetrievalAgentResponse"/>.</returns>
-    public async Task<RetrievalAgentResponse?> InvokeAgentAsync(string input, ChatHistory chatHistory)
+    public async Task<RetrievalAgentResponse?> InvokeAgentAsync(string input, ChatHistoryAgentThread agentThread)
     {
-        ArgumentNullException.ThrowIfNull(chatHistory);
+        ArgumentNullException.ThrowIfNull(agentThread);
 
         ChatMessageContent message = new(AuthorRole.User, input);
-        chatHistory.Add(message);
+        agentThread.ChatHistory.Add(message);
 
         StringBuilder sb = new();
-        await foreach (ChatMessageContent response in agent.InvokeAsync(chatHistory))
+        await foreach (ChatMessageContent response in agent.InvokeAsync(agentThread))
         {
-            chatHistory.Add(response);
+            agentThread.ChatHistory.Add(response);
             sb.Append(response.Content);
         }
 
@@ -114,7 +114,7 @@ public class RetrievalAgent
             retryCount++;
             return await InvokeAgentAsync(
                 $"That response did not match the expected format. Please try again. Error: {je.Message}",
-                chatHistory);
+                agentThread);
         }
     }
 }

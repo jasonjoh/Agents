@@ -6,6 +6,7 @@ using Microsoft.Agents.Builder.App;
 using Microsoft.Agents.Builder.State;
 using Microsoft.Agents.Core.Models;
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
 using RetrievalBot.Agents;
 
@@ -27,11 +28,12 @@ public class Retrieval(AgentApplicationOptions options, Kernel kernel) : AgentAp
         await turnContext.SendActivityAsync(new Activity { Type = ActivityTypes.Typing }, cancellationToken);
 
         var chatHistory = turnState.GetValue("conversation.chatHistory", () => new ChatHistory());
+        var agentThread = new ChatHistoryAgentThread(chatHistory);
 
         RetrievalAgent retrievalAgent = new(kernel, this);
 
         // Invoke the RetrievalAgent to process the message
-        var retrievalResponse = await retrievalAgent.InvokeAgentAsync(turnContext.Activity.Text, chatHistory);
+        var retrievalResponse = await retrievalAgent.InvokeAgentAsync(turnContext.Activity.Text, agentThread);
         if (retrievalResponse == null)
         {
             await turnContext.SendActivityAsync(
