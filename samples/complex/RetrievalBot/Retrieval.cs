@@ -28,27 +28,27 @@ public class Retrieval(AgentApplicationOptions options, Kernel kernel) : AgentAp
 
         var chatHistory = turnState.GetValue("conversation.chatHistory", () => new ChatHistory());
 
-        RetrievalAgent weatherAgent = new(kernel, this);
+        RetrievalAgent retrievalAgent = new(kernel, this);
 
         // Invoke the RetrievalAgent to process the message
-        var forecastResponse = await weatherAgent.InvokeAgentAsync(turnContext.Activity.Text, chatHistory);
-        if (forecastResponse == null)
+        var retrievalResponse = await retrievalAgent.InvokeAgentAsync(turnContext.Activity.Text, chatHistory);
+        if (retrievalResponse == null)
         {
             await turnContext.SendActivityAsync(
-                MessageFactory.Text("Sorry, I couldn't get the weather forecast at the moment."),
+                MessageFactory.Text("Sorry, I ran into a problem responding to your query. Please try again."),
                 cancellationToken);
             return;
         }
 
         // Create a response message based on the response content type from the RetrievalAgent
-        IActivity response = forecastResponse.ContentType switch
+        IActivity response = retrievalResponse.ContentType switch
         {
             RetrievalAgentResponseContentType.AdaptiveCard => MessageFactory.Attachment(new Attachment()
             {
                 ContentType = "application/vnd.microsoft.card.adaptive",
-                Content = forecastResponse.Content,
+                Content = retrievalResponse.Content,
             }),
-            _ => MessageFactory.Text(forecastResponse.Content),
+            _ => MessageFactory.Text(retrievalResponse.Content),
         };
 
         // Send the response message back to the user.
