@@ -1,32 +1,40 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using System.Threading.Tasks;
 
-namespace RetrievalBot.Plugins
+namespace RetrievalBot.Plugins;
+
+/// <summary>
+/// A Semantic Kernel plugin to generate Adaptive Cards based on provided data.
+/// </summary>
+public class AdaptiveCardPlugin
 {
-    public class AdaptiveCardPlugin
+    private const string Instructions = """
+        When given data, please generate an adaptive card that displays the information in
+        a visually appealing way. Make sure to only return the valid adaptive card
+        JSON string in the response.
+        """;
+
+    /// <summary>
+    /// Generates an Adaptive Card based on the provided data.
+    /// </summary>
+    /// <param name="kernel">The <see cref="Kernel"/>.</param>
+    /// <param name="data">The data to use to generate and Adaptive Card.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A JSON string containing an Adaptive Card payload.</returns>
+    [KernelFunction]
+    public async Task<string> GetAdaptiveCardForDataAsync(Kernel kernel, string data, CancellationToken cancellationToken)
     {
-        private const string Instructions = """
-            When given data about the weather forecast for a given time and place, please generate an adaptive card
-            that displays the information in a visually appealing way. Make sure to only return the valid adaptive card
-            JSON string in the response.
-            """;
+        // Create a chat history with the instructions as a system message and the data as a user message
+        ChatHistory chat = new(Instructions);
+        chat.AddUserMessage(data);
 
-        [KernelFunction]
-        public async Task<string> GetAdaptiveCardForData(Kernel kernel, string data)
-        {
-            // Create a chat history with the instructions as a system message and the data as a user message
-            ChatHistory chat = new(Instructions);
-            chat.Add(new ChatMessageContent(AuthorRole.User, data));
+        // Invoke the model to get a response
+        var chatCompletion = kernel.GetRequiredService<IChatCompletionService>();
+        var response = await chatCompletion.GetChatMessageContentAsync(chat, cancellationToken: cancellationToken);
 
-            // Invoke the model to get a response
-            var chatCompletion = kernel.GetRequiredService<IChatCompletionService>();
-            var response = await chatCompletion.GetChatMessageContentAsync(chat);
-
-            return response.ToString();
-        }
+        return response.ToString();
     }
 }

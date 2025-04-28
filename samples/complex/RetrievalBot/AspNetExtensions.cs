@@ -1,36 +1,32 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections.Concurrent;
+using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Agents.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Validators;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
 
-namespace Microsoft.Agents.Samples;
+namespace RetrievalBot;
 
+/// <summary>
+/// Extensions to ASP.NET's IServiceCollection.
+/// Copied from https://github.com/microsoft/Agents-for-net/blob/main/src/samples/Shared/AspNetExtensions.cs.
+/// </summary>
 public static class AspNetExtensions
 {
-    private static readonly ConcurrentDictionary<string, ConfigurationManager<OpenIdConnectConfiguration>> _openIdMetadataCache = new();
+    private static readonly ConcurrentDictionary<string, ConfigurationManager<OpenIdConnectConfiguration>> OpenIdMetadataCache = new();
 
     /// <summary>
     /// Adds token validation typical for ABS/SMBA and agent-to-agent.
     /// default to Azure Public Cloud.
     /// </summary>
-    /// <param name="services"></param>
-    /// <param name="configuration"></param>
+    /// <param name="services">The <see cref="IServiceCollection"/> to extend.</param>
+    /// <param name="configuration">The <see cref="IConfiguration"/> for the application.</param>
     /// <param name="tokenValidationSectionName">Name of the config section to read.</param>
     /// <param name="logger">Optional logger to use for authentication event logging.</param>
     /// <remarks>
@@ -51,24 +47,32 @@ public static class AspNetExtensions
     ///     "OpenIdMetadataRefresh": "optional-12:00:00"
     ///   }
     /// </code>
-    /// 
+    ///
     /// `IsGov` can be omitted, in which case public Azure Bot Service and Azure Cloud metadata urls are used.
     /// `ValidIssuers` can be omitted, in which case the Public Azure Bot Service issuers are used.
-    /// `TenantId` can be omitted if the Agent is not being called by another Agent.  Otherwise it is used to add other known issuers.  Only when `ValidIssuers` is omitted.
+    /// `TenantId` can be omitted if the Agent is not being called by another Agent.  Otherwise it is used to add other known issuers.
+    ///  Only when `ValidIssuers` is omitted.
     /// `AzureBotServiceOpenIdMetadataUrl` can be omitted.  In which case default values in combination with `IsGov` is used.
     /// `OpenIdMetadataUrl` can be omitted.  In which case default values in combination with `IsGov` is used.
     /// `AzureBotServiceTokenHandling` defaults to true and should always be true until Azure Bot Service sends Entra ID token.
     /// </remarks>
-    public static void AddAgentAspNetAuthentication(this IServiceCollection services, IConfiguration configuration, string tokenValidationSectionName = "TokenValidation", ILogger logger = null)
+    public static void AddAgentAspNetAuthentication(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string tokenValidationSectionName = "TokenValidation",
+        ILogger? logger = null)
     {
         IConfigurationSection tokenValidationSection = configuration.GetSection(tokenValidationSectionName);
-        List<string> validTokenIssuers = tokenValidationSection.GetSection("ValidIssuers").Get<List<string>>();
-        List<string> audiences = tokenValidationSection.GetSection("Audiences").Get<List<string>>();
+        List<string>? validTokenIssuers = tokenValidationSection.GetSection("ValidIssuers").Get<List<string>>();
+        List<string>? audiences = tokenValidationSection.GetSection("Audiences").Get<List<string>>();
 
         if (!tokenValidationSection.Exists())
         {
-            logger?.LogError("Missing configuration section '{tokenValidationSectionName}'. This section is required to be present in appsettings.json", tokenValidationSectionName);
-            throw new InvalidOperationException($"Missing configuration section '{tokenValidationSectionName}'. This section is required to be present in appsettings.json");
+            logger?.LogError(
+                "Missing configuration section '{tokenValidationSectionName}'. This section is required to be present in appsettings.json",
+                tokenValidationSectionName);
+            throw new InvalidOperationException(
+                $"Missing configuration section '{tokenValidationSectionName}'. This section is required to be present in appsettings.json");
         }
 
         // If ValidIssuers is empty, default for ABS Public Cloud
@@ -85,11 +89,13 @@ public static class AspNetExtensions
                 "https://login.microsoftonline.com/69e9b82d-4842-4902-8d1e-abc5b98a55e8/v2.0",
             ];
 
-            string tenantId = tokenValidationSection["TenantId"];
+            string? tenantId = tokenValidationSection["TenantId"];
             if (!string.IsNullOrEmpty(tenantId))
             {
-                validTokenIssuers.Add(string.Format(CultureInfo.InvariantCulture, AuthenticationConstants.ValidTokenIssuerUrlTemplateV1, tenantId));
-                validTokenIssuers.Add(string.Format(CultureInfo.InvariantCulture, AuthenticationConstants.ValidTokenIssuerUrlTemplateV2, tenantId));
+                validTokenIssuers.Add(
+                    string.Format(CultureInfo.InvariantCulture, AuthenticationConstants.ValidTokenIssuerUrlTemplateV1, tenantId));
+                validTokenIssuers.Add(
+                    string.Format(CultureInfo.InvariantCulture, AuthenticationConstants.ValidTokenIssuerUrlTemplateV2, tenantId));
             }
         }
 
@@ -101,23 +107,28 @@ public static class AspNetExtensions
         bool isGov = tokenValidationSection.GetValue("IsGov", false);
         bool azureBotServiceTokenHandling = tokenValidationSection.GetValue("AzureBotServiceTokenHandling", true);
 
-        // If the `AzureBotServiceOpenIdMetadataUrl` setting is not specified, use the default based on `IsGov`.  This is what is used to authenticate ABS tokens.
-        string azureBotServiceOpenIdMetadataUrl = tokenValidationSection["AzureBotServiceOpenIdMetadataUrl"];
+        // If the `AzureBotServiceOpenIdMetadataUrl` setting is not specified, use the default based on `IsGov`.
+        // This is what is used to authenticate ABS tokens.
+        string? azureBotServiceOpenIdMetadataUrl = tokenValidationSection["AzureBotServiceOpenIdMetadataUrl"];
         if (string.IsNullOrEmpty(azureBotServiceOpenIdMetadataUrl))
         {
-            azureBotServiceOpenIdMetadataUrl = isGov ? AuthenticationConstants.GovAzureBotServiceOpenIdMetadataUrl : AuthenticationConstants.PublicAzureBotServiceOpenIdMetadataUrl;
+            azureBotServiceOpenIdMetadataUrl = isGov ? AuthenticationConstants.GovAzureBotServiceOpenIdMetadataUrl :
+                AuthenticationConstants.PublicAzureBotServiceOpenIdMetadataUrl;
         }
 
-        // If the `OpenIdMetadataUrl` setting is not specified, use the default based on `IsGov`.  This is what is used to authenticate Entra ID tokens.
-        string openIdMetadataUrl = tokenValidationSection["OpenIdMetadataUrl"];
+        // If the `OpenIdMetadataUrl` setting is not specified, use the default based on `IsGov`.
+        // This is what is used to authenticate Entra ID tokens.
+        string? openIdMetadataUrl = tokenValidationSection["OpenIdMetadataUrl"];
         if (string.IsNullOrEmpty(openIdMetadataUrl))
         {
-            openIdMetadataUrl = isGov ? AuthenticationConstants.GovOpenIdMetadataUrl : AuthenticationConstants.PublicOpenIdMetadataUrl;
+            openIdMetadataUrl = isGov ? AuthenticationConstants.GovOpenIdMetadataUrl :
+                AuthenticationConstants.PublicOpenIdMetadataUrl;
         }
 
-        TimeSpan openIdRefreshInterval = tokenValidationSection.GetValue("OpenIdMetadataRefresh", BaseConfigurationManager.DefaultAutomaticRefreshInterval);
+        TimeSpan openIdRefreshInterval = tokenValidationSection.GetValue(
+            "OpenIdMetadataRefresh", BaseConfigurationManager.DefaultAutomaticRefreshInterval);
 
-        _ = services.AddAuthentication(options =>
+        services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
             options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -150,43 +161,47 @@ public static class AspNetExtensions
                     if (string.IsNullOrEmpty(authorizationHeader))
                     {
                         // Default to AadTokenValidation handling
-                        context.Options.TokenValidationParameters.ConfigurationManager ??= options.ConfigurationManager as BaseConfigurationManager;
-                        await Task.CompletedTask.ConfigureAwait(false);
+                        context.Options.TokenValidationParameters.ConfigurationManager ??=
+                            options.ConfigurationManager as BaseConfigurationManager;
                         return;
                     }
 
-                    string[] parts = authorizationHeader?.Split(' ');
+                    string[] parts = authorizationHeader.Split(' ');
                     if (parts.Length != 2 || parts[0] != "Bearer")
                     {
                         // Default to AadTokenValidation handling
                         context.Options.TokenValidationParameters.ConfigurationManager ??= options.ConfigurationManager as BaseConfigurationManager;
-                        await Task.CompletedTask.ConfigureAwait(false);
                         return;
                     }
 
                     JwtSecurityToken token = new(parts[1]);
-                    string issuer = token.Claims.FirstOrDefault(claim => claim.Type == AuthenticationConstants.IssuerClaim)?.Value;
+                    string? issuer = token.Claims.FirstOrDefault(
+                        claim => claim.Type == AuthenticationConstants.IssuerClaim)?.Value;
 
                     if (azureBotServiceTokenHandling && AuthenticationConstants.BotFrameworkTokenIssuer.Equals(issuer))
                     {
                         // Use the Azure Bot authority for this configuration manager
-                        context.Options.TokenValidationParameters.ConfigurationManager = _openIdMetadataCache.GetOrAdd(azureBotServiceOpenIdMetadataUrl, key =>
-                        {
-                            return new ConfigurationManager<OpenIdConnectConfiguration>(azureBotServiceOpenIdMetadataUrl, new OpenIdConnectConfigurationRetriever(), new HttpClient())
+                        context.Options.TokenValidationParameters.ConfigurationManager =
+                            OpenIdMetadataCache.GetOrAdd(azureBotServiceOpenIdMetadataUrl, key =>
                             {
-                                AutomaticRefreshInterval = openIdRefreshInterval
-                            };
-                        });
+                                return new ConfigurationManager<OpenIdConnectConfiguration>(
+                                    azureBotServiceOpenIdMetadataUrl, new OpenIdConnectConfigurationRetriever(), new HttpClient())
+                                {
+                                    AutomaticRefreshInterval = openIdRefreshInterval,
+                                };
+                            });
                     }
                     else
                     {
-                        context.Options.TokenValidationParameters.ConfigurationManager = _openIdMetadataCache.GetOrAdd(openIdMetadataUrl, key =>
-                        {
-                            return new ConfigurationManager<OpenIdConnectConfiguration>(openIdMetadataUrl, new OpenIdConnectConfigurationRetriever(), new HttpClient())
+                        context.Options.TokenValidationParameters.ConfigurationManager =
+                            OpenIdMetadataCache.GetOrAdd(openIdMetadataUrl, key =>
                             {
-                                AutomaticRefreshInterval = openIdRefreshInterval
-                            };
-                        });
+                                return new ConfigurationManager<OpenIdConnectConfiguration>(
+                                    openIdMetadataUrl, new OpenIdConnectConfigurationRetriever(), new HttpClient())
+                                {
+                                    AutomaticRefreshInterval = openIdRefreshInterval,
+                                };
+                            });
                     }
 
                     await Task.CompletedTask.ConfigureAwait(false);
@@ -206,7 +221,7 @@ public static class AspNetExtensions
                 {
                     logger?.LogWarning("Auth Failed {m}", context.Exception.ToString());
                     return Task.CompletedTask;
-                }
+                },
             };
         });
     }
