@@ -22,6 +22,19 @@ This Agent Sample is intended to introduce you to the Copilot Retrieval API Grou
 
 ## Running this sample
 
+### Download Microsoft.Agents.M365Copilot.Beta library source code
+
+Currently, the `Microsoft.Agents.M365Copilot.Beta` library is unreleased. This project is configured to use this library as a project reference. You'll need to download the source for this library from [microsoft/Agents-M365Copilot](https://github.com/microsoft/Agents-M365Copilot/tree/main/dotnet) and update RetrievalBot.csproj and RetrievalBot.sln. This is a temporary requirement while the library is unreleased.
+
+Once you've downloaded the source for the `Microsoft.Agents.M365Copilot.Beta` library, use the following commands to update the project and solution. Open your CLI in the directory that contains RetrievalBot.csproj.
+
+```powershell
+dotnet remove reference ..\..\..\..\Agents-M365Copilot\dotnet\src\Microsoft.Agents.M365Copilot.Beta\Microsoft.Agents.M365Copilot.Beta.csproj
+dotnet add reference <path to Microsoft.Agents.M365Copilot.Beta.csproj>
+dotnet sln remove ..\..\..\..\Agents-M365Copilot\dotnet\src\Microsoft.Agents.M365Copilot.Beta\Microsoft.Agents.M365Copilot.Beta.csproj
+dotnet sln add <path to Microsoft.Agents.M365Copilot.Beta.csproj>
+```
+
 **To run the sample connected to Azure Bot Service, the following additional tools are required:**
 
 - Access to an Azure Subscription with access to preform the following tasks:
@@ -33,12 +46,12 @@ This Agent Sample is intended to introduce you to the Copilot Retrieval API Grou
     1. Configure your AI service settings. The sample provides configuration placeholders for using Azure OpenAI or OpenAI, but others can be used as well.
     1. With Azure OpenAI:
         1. With Credential Free (Keyless):
-        
+
            This is a secure way to authenticate to Azure resources without needing to store credentials in your code. Your Azure user account is assigned the "Cognitive Services OpenAI User" role, which allows you to access the OpenAI resource.
-           Follow this guide [Role-based access control for Azure resources](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/role-based-access-control) to assign the "Cognitive Services OpenAI User" role to your Azure user account and Managed Identities.    
-           
+           Follow this guide [Role-based access control for Azure resources](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/role-based-access-control) to assign the "Cognitive Services OpenAI User" role to your Azure user account and Managed Identities.
+
            Then you just need to configure Azure OpenAI Endpoint and DeploymentName in the appsettings.json file
-        
+
         1. With dotnet user-secrets (for running locally)
             1. From a terminal or command prompt, navigate to the root of the sample project.
             1. Run the following commands to set the Azure OpenAI settings:
@@ -118,7 +131,7 @@ If you type a message and hit enter, or the send arrow, you should receive a mes
               "Scopes": [
                 "https://api.botframework.com/.default"
               ],
-              "TenantId": "{{TenantId}}" // This is the Tenant ID used for the Connection. 
+              "TenantId": "{{TenantId}}" // This is the Tenant ID used for the Connection.
           }
       }
       ```
@@ -127,7 +140,7 @@ If you type a message and hit enter, or the send arrow, you should receive a mes
       1. Set the **ClientSecret** to the Secret that was created for your identity.
       1. Set the **TenantId** to the Tenant Id where your application is registered.
       1. Set the **Audience** to the AppId of the bot identity.
-      
+
       > Storing sensitive values in appsettings is not recommend.  Follow [AspNet Configuration](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-9.0) for best practices.
 
 1. Run `dev tunnels`. Please follow [Create and host a dev tunnel](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started?tabs=windows) and host the tunnel with anonymous user access command as shown below:
@@ -148,7 +161,7 @@ If you type a message and hit enter, or the send arrow, you should receive a mes
 1. Hey there!
 2. Can you give me a snapshot of all the sessions that Contoso is doing at Build 2025?
 3. How many days till Build 2025?
-4. I haven't seen a demo for the Pricing Analytics session. Can you send a mail to Adele Vance requesting for a Demo run this Friday? 
+4. I haven't seen a demo for the Pricing Analytics session. Can you send a mail to Adele Vance requesting for a Demo run this Friday?
 
 
 ## Further reading
